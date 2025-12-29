@@ -16,7 +16,8 @@ class PyObjectId(ObjectId):
         yield cls.validate
 
     @classmethod
-    def validate(cls, value: Any) -> "PyObjectId":  # type: ignore[override]
+    def validate(cls, value: Any, field_info=None) -> "PyObjectId":
+        # Accepts (cls, value, field_info) for Pydantic v2 compatibility
         if isinstance(value, ObjectId):
             return cls(value)
         if isinstance(value, str) and ObjectId.is_valid(value):

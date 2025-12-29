@@ -94,7 +94,7 @@ class Question(BaseModel):
 class Section(BaseModel):
     id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
     title: str
-    weight: int = Field(ge=1, le=10)
+    weight: int = Field(ge=1, le=100)
     allow_notes: bool = False
     questions: list[Question] = Field(default_factory=list)
 

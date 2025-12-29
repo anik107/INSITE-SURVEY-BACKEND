@@ -94,7 +94,7 @@ class SectionRequestService:
                     }
 
             # Get attraction info
-            if self.attraction_collection:
+            if self.attraction_collection is not None:
                 attraction = await self.attraction_collection.find_one(
                     {"_id": req.attraction_id}
                 )

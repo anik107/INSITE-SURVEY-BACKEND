@@ -81,8 +81,50 @@ class TemplateService:
             )
 
         # Filter allowed updates
-        allowed = {"title"}
+        allowed = {"title", "status", "sections"}
         filtered = {k: v for k, v in updates.items() if k in allowed}
+
+        # Convert sections to dict format if present
+        if "sections" in filtered and filtered["sections"]:
+            sections_data = []
+            for section in filtered["sections"]:
+                questions_data = []
+                for q in section['questions']:
+                    q_id = None
+                    if q.get('id'):
+                        try:
+                            q_id = ObjectId(q['id'])
+                        except:
+                            q_id = None
+                    q_dict = {
+                        "_id": q_id or ObjectId(),
+                        "text": q['text'],
+                        "type": q['type'],
+                        "tag": q['tag'],
+                        "allow_na": q['allow_na'],
+                    }
+                    if q.get('config'):
+                        q_dict["config"] = q['config']
+                    questions_data.append(q_dict)
+
+                s_id = None
+                if section.get('id'):
+                    try:
+                        s_id = ObjectId(section['id'])
+                    except:
+                        s_id = None
+                sections_data.append({
+                    "_id": s_id or ObjectId(),
+                    "title": section['title'],
+                    "weight": section['weight'],
+                    "allow_notes": section['allow_notes'],
+                    "questions": questions_data,
+                })
+            filtered["sections"] = sections_data
+
+        # If publishing, archive current published template
+        if "status" in filtered and filtered["status"] == TemplateStatus.PUBLISHED.value:
+            await self.template_repo.archive_published()
 
         if not filtered:
             return template

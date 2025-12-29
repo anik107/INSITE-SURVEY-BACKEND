@@ -227,7 +227,7 @@ class AuthService:
             raise NotFoundError("User", user_id)
 
         attraction_name = None
-        if user.attraction_id and self.attraction_collection:
+        if user.attraction_id and self.attraction_collection is not None:
             attraction = await self.attraction_collection.find_one(
                 {"_id": user.attraction_id}
             )
@@ -281,7 +281,7 @@ class AuthService:
                 raise ValidationError("attraction_name is required for attraction_admin role")
 
             # Create attraction
-            if self.attraction_collection:
+            if self.attraction_collection is not None:
                 attraction_doc = {
                     "_id": ObjectId(),
                     "name": request.attraction_name,
@@ -315,7 +315,7 @@ class AuthService:
         user = await self.user_repo.create(user_data)
 
         # Update attraction with admin_id
-        if attraction_id and self.attraction_collection:
+        if attraction_id and self.attraction_collection is not None:
             await self.attraction_collection.update_one(
                 {"_id": attraction_id},
                 {"$set": {"admin_id": user.id}}

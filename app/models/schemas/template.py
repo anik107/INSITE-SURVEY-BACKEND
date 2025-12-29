@@ -18,6 +18,7 @@ from app.models.domain import (
 # Question schemas
 class QuestionCreate(BaseModel):
     """Create question request."""
+    id: str | None = None
     text: str = Field(min_length=1, max_length=1000)
     type: QuestionType
     tag: QuestionTag
@@ -47,8 +48,9 @@ class QuestionResponse(BaseModel):
 # Section schemas
 class SectionCreate(BaseModel):
     """Create section request."""
+    id: str | None = None
     title: str = Field(min_length=1, max_length=200)
-    weight: int = Field(default=5, ge=1, le=10)
+    weight: int = Field(default=5, ge=1, le=100)
     allow_notes: bool = False
     questions: list[QuestionCreate] = Field(default_factory=list)
 
@@ -84,6 +86,8 @@ class TemplateCreate(BaseModel):
 class TemplateUpdate(BaseModel):
     """Update template request."""
     title: str | None = Field(default=None, min_length=1, max_length=200)
+    status: TemplateStatus | None = None
+    sections: list[SectionCreate] | None = None
 
 
 class TemplateResponse(BaseModel):

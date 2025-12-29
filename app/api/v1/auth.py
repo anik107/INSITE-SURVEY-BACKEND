@@ -6,6 +6,7 @@ from app.api.deps import (
     AuthServiceDep,
     CurrentActiveUser,
     SuperAdminUser,
+    UserRepoDep,
     get_client_ip,
     get_user_agent,
 )
@@ -111,3 +112,59 @@ async def create_user(
         request=data,
         created_by=str(current_user.id),
     )
+
+
+@router.get("/users/{user_id}", response_model=UserProfileResponse)
+async def get_user(
+    user_id: str,
+    current_user: SuperAdminUser,
+    auth_service: AuthServiceDep,
+) -> UserProfileResponse:
+    """Get user by ID (Super Admin only)."""
+    return await auth_service.get_user_profile(user_id)
+
+
+@router.put("/users/{user_id}", response_model=UserProfileResponse)
+async def update_user(
+    user_id: str,
+    data: dict,
+    current_user: SuperAdminUser,
+    user_repo: UserRepoDep,
+    auth_service: AuthServiceDep,
+) -> UserProfileResponse:
+    """Update user (Super Admin only)."""
+    from app.core.exceptions import NotFoundError
+    
+    updated = await user_repo.update(user_id, data)
+    
+    if not updated:
+        raise NotFoundError("User", user_id)
+    
+    return await auth_service.get_user_profile(user_id)
+
+
+@router.delete("/users/{user_id}", response_model=MessageResponse)
+async def delete_user(
+    user_id: str,
+    current_user: SuperAdminUser,
+    user_repo: UserRepoDep,
+) -> MessageResponse:
+    """Delete user (Super Admin only)."""
+    from app.core.exceptions import NotFoundError, ValidationError
+    from app.models.domain import UserRole
+    
+    # Check if user exists
+    user = await user_repo.find_by_id(user_id)
+    if not user:
+        raise NotFoundError("User", user_id)
+    
+    # Prevent deletion of super admins
+    if user.role == UserRole.SUPER_ADMIN:
+        raise ValidationError("Super admins cannot be deleted")
+    
+    # Delete user
+    deleted = await user_repo.delete(user_id)
+    if not deleted:
+        raise NotFoundError("User", user_id)
+    
+    return MessageResponse(message="User deleted successfully")

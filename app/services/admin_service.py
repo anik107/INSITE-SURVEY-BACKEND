@@ -40,7 +40,7 @@ class AdminService:
             admin_dict = admin.model_dump()
 
             # Get attraction info if exists
-            if admin.attraction_id and self.attraction_collection:
+            if admin.attraction_id and self.attraction_collection is not None:
                 attraction = await self.attraction_collection.find_one(
                     {"_id": admin.attraction_id}
                 )
@@ -109,7 +109,7 @@ class AdminService:
         user = await self.get_admin(admin_id)
         admin_dict = user.model_dump()
 
-        if user.attraction_id and self.attraction_collection:
+        if user.attraction_id and self.attraction_collection is not None:
             attraction = await self.attraction_collection.find_one(
                 {"_id": user.attraction_id}
             )

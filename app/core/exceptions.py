@@ -15,6 +15,15 @@ class AppException(HTTPException):
         super().__init__(status_code=status_code, detail=detail, headers=headers)
         self.error_code = error_code
 
+    @property
+    def message(self):
+        return self.detail
+
+    @property
+    def details(self):
+        # For compatibility with main.py, return detail (or customize as needed)
+        return self.detail
+
 
 class NotFoundError(AppException):
     """Resource not found."""
