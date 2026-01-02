@@ -279,9 +279,9 @@ class ResponseRepository(BaseRepository[SurveyResponse]):
                     "date": "$_id",
                     "count": 1,
                     "tag_averages": {
-                        "spaces_places": "$spaces_places_avg",
-                        "empathy_emotion": "$empathy_emotion_avg",
-                        "storytelling": "$storytelling_avg",
+                        "spaces_places": {"$ifNull": ["$spaces_places_avg", 0.0]},
+                        "empathy_emotion": {"$ifNull": ["$empathy_emotion_avg", 0.0]},
+                        "storytelling": {"$ifNull": ["$storytelling_avg", 0.0]},
                     },
                 }
             },
