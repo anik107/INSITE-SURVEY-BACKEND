@@ -74,9 +74,11 @@ class SurveyListItem(BaseModel):
     qr_code_url: str | None
     published_at: datetime | None
     created_at: datetime
+    section_count: int = 0
+    response_count: int = 0
 
     @classmethod
-    def from_model(cls, survey) -> "SurveyListItem":
+    def from_model(cls, survey, response_count: int = 0) -> "SurveyListItem":
         """Create from domain model."""
         return cls(
             id=str(survey.id),
@@ -86,6 +88,8 @@ class SurveyListItem(BaseModel):
             qr_code_url=survey.qr_code_url,
             published_at=survey.published_at,
             created_at=survey.created_at,
+            section_count=len(survey.sections) if survey.sections else 0,
+            response_count=response_count,
         )
 
 

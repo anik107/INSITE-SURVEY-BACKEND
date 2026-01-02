@@ -6,6 +6,7 @@ from app.api.deps import (
     SurveyServiceDep,
     AttractionAdminUser,
     SubscribedUser,
+    ResponseServiceDep,
 )
 from app.models.domain import SurveyStatus
 from app.models.schemas.survey import (
@@ -23,6 +24,7 @@ router = APIRouter(prefix="/surveys", tags=["Surveys"])
 async def list_surveys(
     current_user: AttractionAdminUser,
     survey_service: SurveyServiceDep,
+    response_service: ResponseServiceDep,
     status: SurveyStatus | None = None,
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
@@ -40,7 +42,12 @@ async def list_surveys(
         limit=page_size,
     )
 
-    items = [SurveyListItem.from_model(s) for s in surveys]
+    # Fetch response counts for each survey
+    items = []
+    for survey in surveys:
+        response_count = await response_service.response_repo.count_by_survey(str(survey.id))
+        items.append(SurveyListItem.from_model(survey, response_count=response_count))
+    
     return PaginatedResponse.create(items, total, page, page_size)
 
 
