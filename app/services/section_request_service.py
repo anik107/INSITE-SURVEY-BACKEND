@@ -84,7 +84,7 @@ class SectionRequestService:
             req_dict = req.model_dump()
 
             # Get admin info
-            if self.user_collection:
+            if self.user_collection is not None:
                 admin = await self.user_collection.find_one({"_id": req.admin_id})
                 if admin:
                     req_dict["admin"] = {
