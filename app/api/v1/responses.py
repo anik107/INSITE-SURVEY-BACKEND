@@ -96,8 +96,8 @@ async def get_response(
     response_service: ResponseServiceDep,
 ) -> SurveyResponseDetail:
     """Get detailed view of a single response."""
-    response = await response_service.get_response(
+    response, template = await response_service.get_response_with_template(
         response_id=response_id,
         attraction_id=str(current_user.attraction_id),
     )
-    return SurveyResponseDetail.from_model(response)
+    return SurveyResponseDetail.from_model(response, template)

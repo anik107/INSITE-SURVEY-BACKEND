@@ -3,6 +3,7 @@ from datetime import datetime
 
 from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorDatabase
+from pymongo import ReturnDocument
 
 from app.models.domain import Template, TemplateStatus, Section, Question
 from app.repositories.base import BaseRepository
@@ -76,7 +77,7 @@ class TemplateRepository(BaseRepository[Template]):
                 "$push": {"sections": section_data},
                 "$set": {"updated_at": datetime.utcnow()},
             },
-            return_document=True,
+            return_document=ReturnDocument.AFTER,
         )
         return self._doc_to_model(result)
 
@@ -96,7 +97,7 @@ class TemplateRepository(BaseRepository[Template]):
                 "sections._id": self._to_object_id(section_id),
             },
             {"$set": set_updates},
-            return_document=True,
+            return_document=ReturnDocument.AFTER,
         )
         return self._doc_to_model(result)
 
@@ -112,7 +113,7 @@ class TemplateRepository(BaseRepository[Template]):
                 "$pull": {"sections": {"_id": self._to_object_id(section_id)}},
                 "$set": {"updated_at": datetime.utcnow()},
             },
-            return_document=True,
+            return_document=ReturnDocument.AFTER,
         )
         return self._doc_to_model(result)
 
@@ -143,7 +144,7 @@ class TemplateRepository(BaseRepository[Template]):
                     "updated_at": datetime.utcnow(),
                 }
             },
-            return_document=True,
+            return_document=ReturnDocument.AFTER,
         )
         return self._doc_to_model(result)
 
@@ -164,7 +165,7 @@ class TemplateRepository(BaseRepository[Template]):
                 "$push": {"sections.$.questions": question_data},
                 "$set": {"updated_at": datetime.utcnow()},
             },
-            return_document=True,
+            return_document=ReturnDocument.AFTER,
         )
         return self._doc_to_model(result)
 
@@ -206,7 +207,7 @@ class TemplateRepository(BaseRepository[Template]):
         result = await self.collection.find_one_and_update(
             {"_id": self._to_object_id(template_id)},
             {"$set": set_updates},
-            return_document=True,
+            return_document=ReturnDocument.AFTER,
         )
         return self._doc_to_model(result)
 
@@ -226,7 +227,7 @@ class TemplateRepository(BaseRepository[Template]):
                 "$pull": {"sections.$.questions": {"_id": self._to_object_id(question_id)}},
                 "$set": {"updated_at": datetime.utcnow()},
             },
-            return_document=True,
+            return_document=ReturnDocument.AFTER,
         )
         return self._doc_to_model(result)
 

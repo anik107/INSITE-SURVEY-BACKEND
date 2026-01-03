@@ -4,6 +4,7 @@ from typing import Any, Generic, TypeVar, Type
 
 from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorDatabase, AsyncIOMotorCollection
+from pymongo import ReturnDocument
 
 from app.models.base import DocumentModel
 
@@ -141,7 +142,7 @@ class BaseRepository(Generic[T]):
         result = await self.collection.find_one_and_update(
             {"_id": self._to_object_id(id)},
             {"$set": data},
-            return_document=True,
+            return_document=ReturnDocument.AFTER,
         )
         return self._doc_to_model(result)
 

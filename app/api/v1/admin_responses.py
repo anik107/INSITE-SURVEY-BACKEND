@@ -101,8 +101,8 @@ async def get_any_response(
     response_service: ResponseServiceDep,
 ) -> SurveyResponseDetail:
     """Get detailed view of a single response (Super Admin only)."""
-    response = await response_service.get_response(
+    response, template = await response_service.get_response_with_template(
         response_id=response_id,
         attraction_id=None,  # No ownership check for Super Admin
     )
-    return SurveyResponseDetail.from_model(response)
+    return SurveyResponseDetail.from_model(response, template)

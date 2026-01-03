@@ -20,6 +20,27 @@ class TemplateService:
     def __init__(self, template_repo: TemplateRepository):
         self.template_repo = template_repo
 
+    async def _ensure_template_mutable(
+        self,
+        template: Template,
+        action: str,
+    ) -> Template:
+        """Ensure template can be modified by downgrading published ones to draft."""
+        if template.status == TemplateStatus.ARCHIVED:
+            raise BusinessRuleError(
+                "BR-TPL-004",
+                f"Cannot {action} an archived template",
+            )
+
+        if template.status == TemplateStatus.PUBLISHED:
+            demoted = await self.template_repo.update(
+                template.id,
+                {"status": TemplateStatus.DRAFT.value},
+            )
+            return demoted or template
+
+        return template
+
     async def list_templates(
         self,
         status: TemplateStatus | None = None,
@@ -71,18 +92,24 @@ class TemplateService:
         template_id: str,
         updates: dict[str, Any],
     ) -> Template:
-        """Update template (draft only)."""
+        """Update template metadata and status."""
         template = await self.get_template(template_id)
-
-        if template.status == TemplateStatus.PUBLISHED:
-            raise BusinessRuleError(
-                "BR-TPL-002",
-                "Cannot update published template directly"
-            )
 
         # Filter allowed updates
         allowed = {"title", "status", "sections"}
         filtered = {k: v for k, v in updates.items() if k in allowed}
+
+        if (
+            template.status == TemplateStatus.ARCHIVED
+            and (
+                "status" not in filtered
+                or filtered.get("status") == TemplateStatus.ARCHIVED.value
+            )
+        ):
+            raise BusinessRuleError(
+                "BR-TPL-004",
+                "Cannot update archived template",
+            )
 
         # Convert sections to dict format if present
         if "sections" in filtered and filtered["sections"]:
@@ -234,12 +261,7 @@ class TemplateService:
     ) -> Template:
         """Add section to template (draft only)."""
         template = await self.get_template(template_id)
-
-        if template.status != TemplateStatus.DRAFT:
-            raise BusinessRuleError(
-                "BR-TPL-002",
-                "Can only modify draft templates"
-            )
+        template = await self._ensure_template_mutable(template, "add sections to")
 
         updated = await self.template_repo.add_section(template_id, section_data)
         if not updated:
@@ -254,12 +276,7 @@ class TemplateService:
     ) -> Template:
         """Update section in template."""
         template = await self.get_template(template_id)
-
-        if template.status != TemplateStatus.DRAFT:
-            raise BusinessRuleError(
-                "BR-TPL-002",
-                "Can only modify draft templates"
-            )
+        template = await self._ensure_template_mutable(template, "update sections of")
 
         # Find section
         section_exists = any(str(s.id) == section_id for s in template.sections)
@@ -280,12 +297,7 @@ class TemplateService:
     ) -> Template:
         """Remove section from template."""
         template = await self.get_template(template_id)
-
-        if template.status != TemplateStatus.DRAFT:
-            raise BusinessRuleError(
-                "BR-TPL-002",
-                "Can only modify draft templates"
-            )
+        await self._ensure_template_mutable(template, "remove sections from")
 
         updated = await self.template_repo.remove_section(template_id, section_id)
         if not updated:
@@ -299,12 +311,7 @@ class TemplateService:
     ) -> Template:
         """Reorder sections in template."""
         template = await self.get_template(template_id)
-
-        if template.status != TemplateStatus.DRAFT:
-            raise BusinessRuleError(
-                "BR-TPL-002",
-                "Can only modify draft templates"
-            )
+        await self._ensure_template_mutable(template, "reorder sections for")
 
         updated = await self.template_repo.reorder_sections(template_id, section_ids)
         if not updated:
@@ -320,12 +327,7 @@ class TemplateService:
     ) -> Template:
         """Add question to section."""
         template = await self.get_template(template_id)
-
-        if template.status != TemplateStatus.DRAFT:
-            raise BusinessRuleError(
-                "BR-TPL-002",
-                "Can only modify draft templates"
-            )
+        await self._ensure_template_mutable(template, "add questions to")
 
         updated = await self.template_repo.add_question(
             template_id, section_id, question_data
@@ -343,12 +345,7 @@ class TemplateService:
     ) -> Template:
         """Update question in section."""
         template = await self.get_template(template_id)
-
-        if template.status != TemplateStatus.DRAFT:
-            raise BusinessRuleError(
-                "BR-TPL-002",
-                "Can only modify draft templates"
-            )
+        await self._ensure_template_mutable(template, "update questions in")
 
         updated = await self.template_repo.update_question(
             template_id, section_id, question_id, updates
@@ -365,12 +362,7 @@ class TemplateService:
     ) -> Template:
         """Remove question from section."""
         template = await self.get_template(template_id)
-
-        if template.status != TemplateStatus.DRAFT:
-            raise BusinessRuleError(
-                "BR-TPL-002",
-                "Can only modify draft templates"
-            )
+        await self._ensure_template_mutable(template, "remove questions from")
 
         updated = await self.template_repo.remove_question(
             template_id, section_id, question_id

@@ -309,6 +309,19 @@ class ResponseService:
 
         return response
 
+    async def get_response_with_template(
+        self,
+        response_id: str,
+        attraction_id: str | None,
+    ):
+        """Get response with template data for enrichment."""
+        response = await self.get_response(response_id, attraction_id)
+        
+        # Fetch template to get question text
+        template = await self.template_repo.find_by_id(response.template_id)
+        
+        return response, template
+
     async def get_survey_analytics(
         self,
         survey_id: str,

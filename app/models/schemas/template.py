@@ -23,7 +23,7 @@ class QuestionCreate(BaseModel):
     type: QuestionType
     tag: QuestionTag
     allow_na: bool = False
-    config: YesNoConfig | NumericConfig | DropdownConfig | None = None
+    config: dict[str, Any] | None = None
 
 
 class QuestionUpdate(BaseModel):
@@ -32,7 +32,7 @@ class QuestionUpdate(BaseModel):
     type: QuestionType | None = None
     tag: QuestionTag | None = None
     allow_na: bool | None = None
-    config: YesNoConfig | NumericConfig | DropdownConfig | None = None
+    config: dict[str, Any] | None = None
 
 
 class QuestionResponse(BaseModel):

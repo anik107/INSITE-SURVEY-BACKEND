@@ -1,4 +1,5 @@
 """Template management API endpoints."""
+import logging
 from fastapi import APIRouter, Query
 from bson import ObjectId
 
@@ -16,6 +17,8 @@ from app.models.schemas.template import (
     QuestionUpdate,
 )
 from app.models.schemas.common import MessageResponse, PaginatedResponse
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/templates", tags=["Templates"])
 
@@ -212,7 +215,7 @@ async def add_section(
             "allow_na": q.allow_na,
         }
         if q.config:
-            q_dict["config"] = q.config.model_dump()
+            q_dict["config"] = q.config
         questions_data.append(q_dict)
 
     section_data = {
@@ -278,6 +281,7 @@ async def add_question(
     template_service: TemplateServiceDep,
 ) -> TemplateResponse:
     """Add question to section (Super Admin only, draft templates only)."""
+    logger.info(f"add_question called with data: {data.model_dump()}")
     question_data = {
         "text": data.text,
         "type": data.type.value,
@@ -285,7 +289,7 @@ async def add_question(
         "allow_na": data.allow_na,
     }
     if data.config:
-        question_data["config"] = data.config.model_dump()
+        question_data["config"] = data.config
 
     template = await template_service.add_question(template_id, section_id, question_data)
     return TemplateResponse.from_model(template)
@@ -314,7 +318,7 @@ async def update_question(
     if data.allow_na is not None:
         updates["allow_na"] = data.allow_na
     if data.config is not None:
-        updates["config"] = data.config.model_dump()
+        updates["config"] = data.config
 
     template = await template_service.update_question(
         template_id, section_id, question_id, updates

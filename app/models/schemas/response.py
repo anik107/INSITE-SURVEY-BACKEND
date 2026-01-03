@@ -39,6 +39,7 @@ class ResponseSubmitResult(BaseModel):
 class QuestionAnswerResponse(BaseModel):
     """Question answer in response detail."""
     question_id: str
+    text: str  # The actual question text
     type: QuestionType
     value: Any
     score: float | None
@@ -65,13 +66,26 @@ class SurveyResponseDetail(BaseModel):
     weather_snapshot: dict[str, Any] | None
 
     @classmethod
-    def from_model(cls, response) -> "SurveyResponseDetail":
-        """Create from domain model."""
+    def from_model(cls, response, template=None) -> "SurveyResponseDetail":
+        """Create from domain model.
+        
+        Args:
+            response: The survey response domain model
+            template: Optional template to enrich with question text
+        """
+        # Build question lookup if template provided
+        question_lookup = {}
+        if template:
+            for section in template.sections:
+                for question in section.questions:
+                    question_lookup[str(question.id)] = question.text
+        
         sections = []
         for s in response.sections:
             questions = [
                 QuestionAnswerResponse(
                     question_id=str(q.question_id),
+                    text=question_lookup.get(str(q.question_id), ""),  # Get question text from template
                     type=q.type,
                     value=q.value,
                     score=q.score,
