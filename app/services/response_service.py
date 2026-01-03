@@ -268,37 +268,43 @@ class ResponseService:
 
     async def list_responses(
         self,
-        attraction_id: str,
+        attraction_id: str | None,
         survey_id: str | None = None,
         skip: int = 0,
         limit: int = 20,
     ) -> tuple[list[SurveyResponse], int]:
-        """List responses with filtering."""
+        """List responses with filtering. If attraction_id is None, returns all responses (Super Admin)."""
         if survey_id:
             responses = await self.response_repo.find_by_survey(
                 survey_id, skip=skip, limit=limit
             )
             total = await self.response_repo.count_by_survey(survey_id)
-        else:
+        elif attraction_id:
             responses = await self.response_repo.find_by_attraction(
                 attraction_id, skip=skip, limit=limit
             )
             total = await self.response_repo.count_by_attraction(attraction_id)
+        else:
+            # Super Admin: get all responses
+            responses = await self.response_repo.find_many(
+                {}, skip=skip, limit=limit, sort=[("submitted_at", -1)]
+            )
+            total = await self.response_repo.count({})
 
         return responses, total
 
     async def get_response(
         self,
         response_id: str,
-        attraction_id: str,
+        attraction_id: str | None,
     ) -> SurveyResponse:
-        """Get response by ID, ensuring it belongs to the attraction."""
+        """Get response by ID. If attraction_id is None (Super Admin), no ownership check."""
         response = await self.response_repo.find_by_id(response_id)
         if not response:
             raise NotFoundError("Response", response_id)
 
-        # Check attraction ownership
-        if str(response.attraction_id) != attraction_id:
+        # Check attraction ownership (skip for Super Admin)
+        if attraction_id is not None and str(response.attraction_id) != attraction_id:
             raise ForbiddenError("Access denied to this response")
 
         return response
@@ -306,15 +312,16 @@ class ResponseService:
     async def get_survey_analytics(
         self,
         survey_id: str,
-        attraction_id: str,
+        attraction_id: str | None,
     ) -> SurveyAnalytics:
-        """Get analytics for a specific survey."""
-        # Verify survey belongs to attraction
-        survey = await self.survey_repo.find_by_id(survey_id)
-        if not survey:
-            raise NotFoundError("Survey", survey_id)
-        if str(survey.attraction_id) != attraction_id:
-            raise ForbiddenError("Access denied to this survey")
+        """Get analytics for a specific survey. If attraction_id is None (Super Admin), no ownership check."""
+        # Verify survey belongs to attraction (skip for Super Admin)
+        if attraction_id is not None:
+            survey = await self.survey_repo.find_by_id(survey_id)
+            if not survey:
+                raise NotFoundError("Survey", survey_id)
+            if str(survey.attraction_id) != attraction_id:
+                raise ForbiddenError("Access denied to this survey")
 
         analytics = await self.response_repo.get_survey_analytics(survey_id)
 
@@ -337,9 +344,9 @@ class ResponseService:
 
     async def get_attraction_analytics(
         self,
-        attraction_id: str,
+        attraction_id: str | None,
     ) -> SurveyAnalytics:
-        """Get aggregate analytics for all attraction surveys."""
+        """Get aggregate analytics for attraction surveys. If attraction_id is None (Super Admin), returns global analytics."""
         analytics = await self.response_repo.get_attraction_analytics(attraction_id)
 
         tag_averages = []
@@ -361,13 +368,13 @@ class ResponseService:
 
     async def get_daily_trend(
         self,
-        attraction_id: str,
+        attraction_id: str | None,
         survey_id: str | None = None,
         start_date: datetime | None = None,
         end_date: datetime | None = None,
         days: int = 30,
     ) -> list[DailyTrendItem]:
-        """Get daily response trends."""
+        """Get daily response trends. If attraction_id is None (Super Admin), returns global trends."""
         # Set date range
         if not end_date:
             end_date = datetime.utcnow()

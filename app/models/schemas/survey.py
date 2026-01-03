@@ -76,9 +76,11 @@ class SurveyListItem(BaseModel):
     created_at: datetime
     section_count: int = 0
     response_count: int = 0
+    attraction_name: str | None = None
+    template_name: str | None = None
 
     @classmethod
-    def from_model(cls, survey, response_count: int = 0) -> "SurveyListItem":
+    def from_model(cls, survey, response_count: int = 0, attraction_name: str | None = None, template_name: str | None = None) -> "SurveyListItem":
         """Create from domain model."""
         return cls(
             id=str(survey.id),
@@ -90,6 +92,8 @@ class SurveyListItem(BaseModel):
             created_at=survey.created_at,
             section_count=len(survey.sections) if survey.sections else 0,
             response_count=response_count,
+            attraction_name=attraction_name,
+            template_name=template_name,
         )
 
 
