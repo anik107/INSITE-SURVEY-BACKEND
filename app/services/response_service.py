@@ -322,6 +322,23 @@ class ResponseService:
         
         return response, template
 
+    async def delete_response(
+        self,
+        response_id: str,
+        attraction_id: str | None,
+    ) -> None:
+        """Delete a response after ownership validation."""
+        response = await self.response_repo.find_by_id(response_id)
+        if not response:
+            raise NotFoundError("Response", response_id)
+
+        if attraction_id is not None and str(response.attraction_id) != attraction_id:
+            raise ForbiddenError("Access denied to this response")
+
+        deleted = await self.response_repo.delete(response_id)
+        if not deleted:
+            raise NotFoundError("Response", response_id)
+
     async def get_survey_analytics(
         self,
         survey_id: str,

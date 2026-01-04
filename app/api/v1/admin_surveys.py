@@ -29,6 +29,7 @@ async def list_all_surveys(
     template_repo: TemplateRepoDep,
     db: DatabaseDep,
     status: SurveyStatus | None = None,
+    attraction_id: str | None = Query(None, description="Filter by attraction ID"),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
 ) -> PaginatedResponse[SurveyListItem]:
@@ -36,10 +37,11 @@ async def list_all_surveys(
     List all surveys across all attractions (Super Admin only).
 
     - **status**: Filter by survey status (draft, published, archived)
+    - **attraction_id**: Optional filter to only show surveys for a specific attraction
     """
     skip = (page - 1) * page_size
     surveys, total = await survey_service.list_surveys(
-        attraction_id=None,  # None means all attractions
+        attraction_id=attraction_id,
         status=status,
         skip=skip,
         limit=page_size,

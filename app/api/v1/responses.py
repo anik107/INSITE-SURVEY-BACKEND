@@ -10,7 +10,7 @@ from app.models.schemas.response import (
     SurveyAnalytics,
     DailyTrendItem,
 )
-from app.models.schemas.common import PaginatedResponse
+from app.models.schemas.common import PaginatedResponse, MessageResponse
 
 router = APIRouter(prefix="/responses", tags=["Responses"])
 
@@ -101,3 +101,17 @@ async def get_response(
         attraction_id=str(current_user.attraction_id),
     )
     return SurveyResponseDetail.from_model(response, template)
+
+
+@router.delete("/{response_id}", response_model=MessageResponse)
+async def delete_response(
+    response_id: str,
+    current_user: AttractionAdminUser,
+    response_service: ResponseServiceDep,
+) -> MessageResponse:
+    """Delete a response that belongs to the current attraction."""
+    await response_service.delete_response(
+        response_id=response_id,
+        attraction_id=str(current_user.attraction_id),
+    )
+    return MessageResponse(message="Response deleted successfully")

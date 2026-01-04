@@ -10,7 +10,7 @@ from app.models.schemas.response import (
     SurveyAnalytics,
     DailyTrendItem,
 )
-from app.models.schemas.common import PaginatedResponse
+from app.models.schemas.common import PaginatedResponse, MessageResponse
 
 router = APIRouter(prefix="/admin/responses", tags=["Admin Responses"])
 
@@ -106,3 +106,17 @@ async def get_any_response(
         attraction_id=None,  # No ownership check for Super Admin
     )
     return SurveyResponseDetail.from_model(response, template)
+
+
+@router.delete("/{response_id}", response_model=MessageResponse)
+async def delete_any_response(
+    response_id: str,
+    current_user: SuperAdminUser,
+    response_service: ResponseServiceDep,
+) -> MessageResponse:
+    """Delete a response (Super Admin only)."""
+    await response_service.delete_response(
+        response_id=response_id,
+        attraction_id=None,
+    )
+    return MessageResponse(message="Response deleted successfully")
