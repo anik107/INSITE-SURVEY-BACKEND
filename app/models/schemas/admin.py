@@ -19,6 +19,7 @@ class AdminResponse(BaseModel):
     name: str
     email: str
     username: str
+    role: str
     status: UserStatus
     attraction_id: str | None = None
     subscription_status: str | None = None

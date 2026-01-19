@@ -82,7 +82,8 @@ async def create_template(
                 "allow_na": q.allow_na,
             }
             if q.config:
-                q_dict["config"] = q.config.model_dump()
+                # config is already a dict from the request
+                q_dict["config"] = q.config if isinstance(q.config, dict) else q.config.model_dump()
             questions_data.append(q_dict)
 
         sections_data.append({

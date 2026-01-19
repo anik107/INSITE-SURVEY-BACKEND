@@ -1,5 +1,6 @@
 """Authentication API endpoints."""
-from fastapi import APIRouter, Request, Depends
+import logging
+from fastapi import APIRouter, Request, Depends, BackgroundTasks
 from typing import Annotated
 
 from app.api.deps import (
@@ -20,6 +21,9 @@ from app.models.schemas.auth import (
     CreateUserResponse,
 )
 from app.models.schemas.common import MessageResponse
+from app.services.email_service import get_email_service
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -101,17 +105,37 @@ async def create_user(
     data: CreateUserRequest,
     current_user: SuperAdminUser,
     auth_service: AuthServiceDep,
+    background_tasks: BackgroundTasks,
 ) -> CreateUserResponse:
     """
     Create a new user (Super Admin only).
 
     - For **attraction_admin** role, provide **attraction_name**
     - Sets up attraction with specified subscription fees
+    - Sends login credentials to the user's email
     """
-    return await auth_service.create_user(
+    # Store plain password before it gets hashed
+    plain_password = data.password
+
+    user_response = await auth_service.create_user(
         request=data,
         created_by=str(current_user.id),
     )
+
+    # Send credentials email in background for attraction admins
+    if data.role == "attraction_admin" and data.attraction_name:
+        email_service = get_email_service()
+        background_tasks.add_task(
+            email_service.send_admin_credentials,
+            to_email=data.email,
+            admin_name=data.name,
+            username=data.username,
+            password=plain_password,
+            attraction_name=data.attraction_name,
+        )
+        logger.info(f"Credentials email queued for {data.email}")
+
+    return user_response
 
 
 @router.get("/users/{user_id}", response_model=UserProfileResponse)

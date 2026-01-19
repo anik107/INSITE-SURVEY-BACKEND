@@ -27,12 +27,12 @@ class AdminService:
         limit: int = 20,
     ) -> tuple[list[dict[str, Any]], int]:
         """
-        List all attraction admins with their attraction info.
+        List all admins (super and attraction) with their attraction info.
 
         Returns list of admins with attraction details.
         """
-        admins = await self.user_repo.find_attraction_admins(status, skip, limit)
-        total = await self.user_repo.count_attraction_admins(status)
+        admins = await self.user_repo.find_all_admins(status, skip, limit)
+        total = await self.user_repo.count_all_admins(status)
 
         # Enrich with attraction info
         result = []

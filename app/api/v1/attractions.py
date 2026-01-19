@@ -21,6 +21,7 @@ class AttractionResponse(BaseModel):
     admin_id: str | None = None
     admin_name: str | None = None
     admin_email: str | None = None
+    admin_status: str | None = None  # Admin account status (active/suspended)
     monthly_fee: float = 0.0
     yearly_fee: float = 199.0
     subscription_status: str
@@ -80,12 +81,14 @@ async def list_attractions(
     for attraction in attractions:
         admin_name = None
         admin_email = None
-        
+        admin_status = None
+
         if attraction.admin_id:
             admin = await user_repo.find_by_id(str(attraction.admin_id))
             if admin:
                 admin_name = admin.name
                 admin_email = admin.email
+                admin_status = admin.status.value if admin.status else None
 
         items.append(AttractionResponse(
             id=str(attraction.id),
@@ -93,6 +96,7 @@ async def list_attractions(
             admin_id=str(attraction.admin_id) if attraction.admin_id else None,
             admin_name=admin_name,
             admin_email=admin_email,
+            admin_status=admin_status,
             monthly_fee=attraction.monthly_fee,
             yearly_fee=attraction.yearly_fee,
             subscription_status=attraction.subscription_status.value,
@@ -123,12 +127,14 @@ async def get_attraction(
 
     admin_name = None
     admin_email = None
-    
+    admin_status = None
+
     if attraction.admin_id:
         admin = await user_repo.find_by_id(str(attraction.admin_id))
         if admin:
             admin_name = admin.name
             admin_email = admin.email
+            admin_status = admin.status.value if admin.status else None
 
     return AttractionResponse(
         id=str(attraction.id),
@@ -136,6 +142,7 @@ async def get_attraction(
         admin_id=str(attraction.admin_id) if attraction.admin_id else None,
         admin_name=admin_name,
         admin_email=admin_email,
+        admin_status=admin_status,
         monthly_fee=attraction.monthly_fee,
         yearly_fee=attraction.yearly_fee,
         subscription_status=attraction.subscription_status.value,
@@ -181,7 +188,7 @@ async def create_attraction(
     # Get the created attraction (created by auth service)
     attraction_repo = AttractionRepository(db)
     attraction = await attraction_repo.find_by_admin(str(user_response.id))
-    
+
     if not attraction:
         raise NotFoundError("Attraction", "created")
 
@@ -191,6 +198,7 @@ async def create_attraction(
         admin_id=str(attraction.admin_id) if attraction.admin_id else None,
         admin_name=user_response.name,
         admin_email=user_response.email,
+        admin_status="active",  # Newly created admins are active
         monthly_fee=attraction.monthly_fee,
         yearly_fee=attraction.yearly_fee,
         subscription_status=attraction.subscription_status.value,
@@ -233,6 +241,7 @@ async def update_attraction(
         admin_id=str(updated.admin_id) if updated.admin_id else None,
         admin_name=None,  # Would need to fetch separately
         admin_email=None,  # Would need to fetch separately
+        admin_status=None,  # Would need to fetch separately
         monthly_fee=updated.monthly_fee,
         yearly_fee=updated.yearly_fee,
         subscription_status=updated.subscription_status.value,

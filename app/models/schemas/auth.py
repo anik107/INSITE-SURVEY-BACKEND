@@ -12,12 +12,22 @@ class LoginRequest(BaseModel):
     password: str = Field(min_length=1)
 
 
+class TokenUserInfo(BaseModel):
+    """User info included in token response."""
+    id: str
+    name: str
+    email: str
+    username: str
+    role: str
+
+
 class TokenResponse(BaseModel):
     """Token response after successful authentication."""
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
     expires_in: int = Field(description="Access token expiry in seconds")
+    user: TokenUserInfo
 
 
 class RefreshTokenRequest(BaseModel):

@@ -29,6 +29,7 @@ from app.models.schemas.auth import (
 )
 from app.repositories.user_repository import UserRepository
 from app.repositories.session_repository import SessionRepository
+from app.services.email_service import get_email_service
 
 
 class AuthService:
@@ -96,11 +97,19 @@ class AuthService:
         # Update last login
         await self.user_repo.update_last_login(user.id)
 
+        from app.models.schemas.auth import TokenUserInfo
         return TokenResponse(
             access_token=token_pair.access_token,
             refresh_token=token_pair.refresh_token,
             token_type=token_pair.token_type,
             expires_in=token_pair.expires_in,
+            user=TokenUserInfo(
+                id=str(user.id),
+                name=user.name,
+                email=user.email,
+                username=user.username,
+                role=user.role.value,
+            ),
         )
 
     async def refresh_tokens(
@@ -165,11 +174,19 @@ class AuthService:
             "ip_address": ip_address,
         })
 
+        from app.models.schemas.auth import TokenUserInfo
         return TokenResponse(
             access_token=token_pair.access_token,
             refresh_token=token_pair.refresh_token,
             token_type=token_pair.token_type,
             expires_in=token_pair.expires_in,
+            user=TokenUserInfo(
+                id=str(user.id),
+                name=user.name,
+                email=user.email,
+                username=user.username,
+                role=user.role.value,
+            ),
         )
 
     async def logout(self, user_id: str, token_jti: str | None = None) -> None:
@@ -319,6 +336,17 @@ class AuthService:
             await self.attraction_collection.update_one(
                 {"_id": attraction_id},
                 {"$set": {"admin_id": user.id}}
+            )
+
+        # Send welcome email with credentials to attraction admin
+        if request.role == UserRole.ATTRACTION_ADMIN:
+            email_service = get_email_service()
+            await email_service.send_admin_credentials(
+                to_email=request.email,
+                admin_name=request.name,
+                username=request.username,
+                password=request.password,  # Plain password before hashing
+                attraction_name=request.attraction_name or "Your Attraction",
             )
 
         return CreateUserResponse(

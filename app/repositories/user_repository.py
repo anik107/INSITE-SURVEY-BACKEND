@@ -59,6 +59,30 @@ class UserRepository(BaseRepository[User]):
             filter["status"] = status.value
         return await self.count(filter)
 
+    async def find_all_admins(
+        self,
+        status: UserStatus | None = None,
+        skip: int = 0,
+        limit: int = 20,
+    ) -> list[User]:
+        """Find all admins (super and attraction) with optional status filter."""
+        filter: dict = {}
+        if status:
+            filter["status"] = status.value
+        return await self.find_many(
+            filter,
+            skip=skip,
+            limit=limit,
+            sort=[("role", 1), ("created_at", -1)],  # Super admins first
+        )
+
+    async def count_all_admins(self, status: UserStatus | None = None) -> int:
+        """Count all admins with optional status filter."""
+        filter: dict = {}
+        if status:
+            filter["status"] = status.value
+        return await self.count(filter)
+
     async def update_last_login(self, user_id: str | ObjectId) -> None:
         """Update last login timestamp."""
         await self.collection.update_one(
