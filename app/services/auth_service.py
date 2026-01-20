@@ -237,6 +237,32 @@ class AuthService:
         # Revoke all sessions to force re-login
         await self.session_repo.revoke_all_for_user(user_id)
 
+    async def reset_password_by_username(
+        self,
+        username: str,
+        new_password: str,
+    ) -> None:
+        """
+        Reset user password by username (minimal - no email).
+
+        Args:
+            username: Username
+            new_password: New password
+
+        Raises:
+            NotFoundError: If user not found
+        """
+        user = await self.user_repo.find_by_username(username)
+        if not user:
+            raise NotFoundError("User", username)
+
+        # Update password
+        new_hash = hash_password(new_password)
+        await self.user_repo.update_password(str(user.id), new_hash)
+
+        # Revoke all sessions to force re-login
+        await self.session_repo.revoke_all_for_user(str(user.id))
+
     async def get_user_profile(self, user_id: str) -> UserProfileResponse:
         """Get user profile with attraction info."""
         user = await self.user_repo.find_by_id(user_id)

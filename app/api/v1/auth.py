@@ -19,6 +19,7 @@ from app.models.schemas.auth import (
     UserProfileResponse,
     CreateUserRequest,
     CreateUserResponse,
+    ResetPasswordRequest,
 )
 from app.models.schemas.common import MessageResponse
 from app.services.email_service import get_email_service
@@ -98,6 +99,21 @@ async def change_password(
     """
     await auth_service.change_password(str(current_user.id), data)
     return MessageResponse(message="Password changed successfully")
+
+
+@router.post("/reset-password", response_model=MessageResponse)
+async def reset_password(
+    data: ResetPasswordRequest,
+    auth_service: AuthServiceDep,
+) -> MessageResponse:
+    """
+    Reset password using username (no email required).
+
+    - **username**: User's username
+    - **new_password**: New password (min 8 characters)
+    """
+    await auth_service.reset_password_by_username(data.username, data.new_password)
+    return MessageResponse(message="Password reset successfully")
 
 
 @router.post("/users", response_model=CreateUserResponse)

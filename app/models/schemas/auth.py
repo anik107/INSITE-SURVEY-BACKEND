@@ -41,6 +41,12 @@ class ChangePasswordRequest(BaseModel):
     new_password: str = Field(min_length=8, max_length=128)
 
 
+class ResetPasswordRequest(BaseModel):
+    """Reset password request payload (minimal - no email)."""
+    username: str = Field(min_length=1)
+    new_password: str = Field(min_length=8, max_length=128)
+
+
 class UserProfileResponse(BaseModel):
     """User profile response."""
     id: str
