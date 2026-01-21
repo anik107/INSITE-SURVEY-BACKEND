@@ -201,6 +201,7 @@ class ResponseService:
                 "section_id": ObjectId(section_id),
                 "note": section_data.note,
                 "questions": questions_responses,
+                "images": section_data.images or [],
             })
 
         # Calculate tag averages
@@ -211,6 +212,10 @@ class ResponseService:
         }
 
         # Create response document
+        weather_data = None
+        if data.weather_snapshot:
+            weather_data = data.weather_snapshot.model_dump()
+
         response_data = {
             "survey_id": survey.id,
             "attraction_id": survey.attraction_id,
@@ -219,7 +224,7 @@ class ResponseService:
             "sections": processed_sections,
             "tag_scores": tag_averages,
             "section_scores": section_scores,
-            "weather_snapshot": None,
+            "weather_snapshot": weather_data,
             "duplicate_fingerprint": effective_fingerprint,
         }
 

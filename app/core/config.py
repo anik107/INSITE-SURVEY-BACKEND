@@ -27,6 +27,10 @@ class Settings(BaseSettings):
     # Application URLs (for QR codes and survey links)
     base_url: str = Field(default="http://localhost:3000", alias="BASE_URL")
 
+    # Frontend URL (for email links like login button)
+    # Falls back to base_url if not set
+    frontend_url: str = Field(default="", alias="FRONTEND_URL")
+
     # Email Configuration (SMTP)
     smtp_host: str = Field(default="smtp.gmail.com", alias="SMTP_HOST")
     smtp_port: int = Field(default=587, alias="SMTP_PORT")

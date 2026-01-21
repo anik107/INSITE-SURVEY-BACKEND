@@ -18,6 +18,15 @@ class SectionAnswerSubmit(BaseModel):
     section_id: str
     note: str | None = None
     questions: list[QuestionAnswerSubmit]
+    images: list[str] | None = None  # Base64 encoded images
+
+
+class WeatherSnapshotSubmit(BaseModel):
+    """Weather data at time of submission."""
+    temperature: float | None = None
+    condition: str | None = None
+    humidity: float | None = None
+    location: str | None = None
 
 
 class ResponseSubmit(BaseModel):
@@ -27,6 +36,7 @@ class ResponseSubmit(BaseModel):
         None,
         description="Browser fingerprint for duplicate detection",
     )
+    weather_snapshot: WeatherSnapshotSubmit | None = None
 
 
 class ResponseSubmitResult(BaseModel):

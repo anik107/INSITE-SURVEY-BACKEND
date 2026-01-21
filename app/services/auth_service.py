@@ -55,7 +55,7 @@ class AuthService:
         Authenticate user and return tokens.
 
         Args:
-            request: Login credentials
+            request: Login credentials (username can be either username or email)
             user_agent: Client user agent
             ip_address: Client IP address
 
@@ -66,8 +66,22 @@ class AuthService:
             InvalidCredentialsError: If credentials are invalid
             AccountSuspendedError: If account is suspended
         """
-        # Find user by username
-        user = await self.user_repo.find_by_username(request.username)
+        # Find user by username or email
+        # If input contains '@', try email first; otherwise try username first
+        user = None
+        if "@" in request.username:
+            # Looks like an email, try email first
+            user = await self.user_repo.find_by_email(request.username)
+            if not user:
+                # Fallback to username search
+                user = await self.user_repo.find_by_username(request.username)
+        else:
+            # Try username first
+            user = await self.user_repo.find_by_username(request.username)
+            if not user:
+                # Fallback to email search
+                user = await self.user_repo.find_by_email(request.username)
+
         if not user:
             raise InvalidCredentialsError()
 

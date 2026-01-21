@@ -101,7 +101,9 @@ class EmailService:
         Returns:
             True if email was sent successfully, False otherwise
         """
-        login_url = login_url or f"{settings.base_url}/login"
+        # Use frontend_url if set, otherwise fall back to base_url
+        frontend_base = settings.frontend_url or settings.base_url
+        login_url = login_url or f"{frontend_base}/login"
 
         subject = f"Welcome to InSite Survey - Your Admin Credentials for {attraction_name}"
 
