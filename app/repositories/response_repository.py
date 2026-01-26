@@ -105,10 +105,10 @@ class ResponseRepository(BaseRepository[SurveyResponse]):
         self,
         survey_id: str,
         fingerprint: str,
-        window_hours: int = 12,
+        window_minutes: int = 1,
     ) -> bool:
         """Check if fingerprint exists within time window for survey."""
-        cutoff = datetime.utcnow() - timedelta(hours=window_hours)
+        cutoff = datetime.utcnow() - timedelta(minutes=window_minutes)
         return await self.exists({
             "survey_id": self._to_object_id(survey_id),
             "duplicate_fingerprint": fingerprint,

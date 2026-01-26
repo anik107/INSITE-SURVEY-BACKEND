@@ -21,6 +21,7 @@ class AttractionResponse(BaseModel):
     admin_id: str | None = None
     admin_name: str | None = None
     admin_email: str | None = None
+    admin_username: str | None = None
     admin_status: str | None = None  # Admin account status (active/suspended)
     monthly_fee: float = 0.0
     yearly_fee: float = 199.0
@@ -81,6 +82,7 @@ async def list_attractions(
     for attraction in attractions:
         admin_name = None
         admin_email = None
+        admin_username = None
         admin_status = None
 
         if attraction.admin_id:
@@ -88,6 +90,7 @@ async def list_attractions(
             if admin:
                 admin_name = admin.name
                 admin_email = admin.email
+                admin_username = admin.username
                 admin_status = admin.status.value if admin.status else None
 
         items.append(AttractionResponse(
@@ -96,6 +99,7 @@ async def list_attractions(
             admin_id=str(attraction.admin_id) if attraction.admin_id else None,
             admin_name=admin_name,
             admin_email=admin_email,
+            admin_username=admin_username,
             admin_status=admin_status,
             monthly_fee=attraction.monthly_fee,
             yearly_fee=attraction.yearly_fee,
@@ -121,12 +125,13 @@ async def get_attraction(
     """Get attraction by ID (Super Admin only)."""
     attraction_repo = AttractionRepository(db)
     attraction = await attraction_repo.find_by_id(attraction_id)
-    
+
     if not attraction:
         raise NotFoundError("Attraction", attraction_id)
 
     admin_name = None
     admin_email = None
+    admin_username = None
     admin_status = None
 
     if attraction.admin_id:
@@ -134,6 +139,7 @@ async def get_attraction(
         if admin:
             admin_name = admin.name
             admin_email = admin.email
+            admin_username = admin.username
             admin_status = admin.status.value if admin.status else None
 
     return AttractionResponse(
@@ -142,6 +148,7 @@ async def get_attraction(
         admin_id=str(attraction.admin_id) if attraction.admin_id else None,
         admin_name=admin_name,
         admin_email=admin_email,
+        admin_username=admin_username,
         admin_status=admin_status,
         monthly_fee=attraction.monthly_fee,
         yearly_fee=attraction.yearly_fee,
@@ -198,6 +205,7 @@ async def create_attraction(
         admin_id=str(attraction.admin_id) if attraction.admin_id else None,
         admin_name=user_response.name,
         admin_email=user_response.email,
+        admin_username=user_response.username,
         admin_status="active",  # Newly created admins are active
         monthly_fee=attraction.monthly_fee,
         yearly_fee=attraction.yearly_fee,
@@ -211,6 +219,80 @@ async def create_attraction(
     )
 
 
+class AttractionPricingUpdate(BaseModel):
+    """Update attraction pricing."""
+    monthly_fee: Optional[float] = None
+    yearly_fee: Optional[float] = None
+
+
+@router.put("/{attraction_id}/pricing", response_model=AttractionResponse)
+async def update_attraction_pricing(
+    attraction_id: str,
+    data: AttractionPricingUpdate,
+    current_user: SuperAdminUser,
+    db: DatabaseDep,
+    user_repo: UserRepoDep,
+):
+    """Update attraction pricing (Super Admin only). Cannot update if subscription is active."""
+    attraction_repo = AttractionRepository(db)
+    attraction = await attraction_repo.find_by_id(attraction_id)
+
+    if not attraction:
+        raise NotFoundError("Attraction", attraction_id)
+
+    # Check if subscription is active
+    if attraction.subscription_status == SubscriptionStatus.ACTIVE:
+        raise ValidationError("Cannot update pricing while subscription is active")
+
+    # Update pricing
+    updates = {}
+    if data.monthly_fee is not None:
+        updates["monthly_fee"] = data.monthly_fee
+    if data.yearly_fee is not None:
+        updates["yearly_fee"] = data.yearly_fee
+
+    if not updates:
+        raise ValidationError("No pricing updates provided")
+
+    updated = await attraction_repo.update(attraction_id, updates)
+
+    if not updated:
+        raise NotFoundError("Attraction", attraction_id)
+
+    # Get admin info
+    admin_name = None
+    admin_email = None
+    admin_username = None
+    admin_status = None
+
+    if updated.admin_id:
+        admin = await user_repo.find_by_id(str(updated.admin_id))
+        if admin:
+            admin_name = admin.name
+            admin_email = admin.email
+            admin_username = admin.username
+            admin_status = admin.status.value if admin.status else None
+
+    return AttractionResponse(
+        id=str(updated.id),
+        name=updated.name,
+        admin_id=str(updated.admin_id) if updated.admin_id else None,
+        admin_name=admin_name,
+        admin_email=admin_email,
+        admin_username=admin_username,
+        admin_status=admin_status,
+        monthly_fee=updated.monthly_fee,
+        yearly_fee=updated.yearly_fee,
+        subscription_status=updated.subscription_status.value,
+        subscription_plan=updated.subscription_plan.value if updated.subscription_plan else None,
+        subscription_start=updated.subscription_start,
+        subscription_end=updated.subscription_end,
+        auto_renew=updated.auto_renew,
+        created_at=updated.created_at,
+        updated_at=updated.updated_at,
+    )
+
+
 @router.put("/{attraction_id}", response_model=AttractionResponse)
 async def update_attraction(
     attraction_id: str,
@@ -221,7 +303,7 @@ async def update_attraction(
     """Update attraction (Super Admin only)."""
     attraction_repo = AttractionRepository(db)
     attraction = await attraction_repo.find_by_id(attraction_id)
-    
+
     if not attraction:
         raise NotFoundError("Attraction", attraction_id)
 
@@ -229,7 +311,7 @@ async def update_attraction(
     updates = {}
     if "name" in data:
         updates["name"] = data["name"]
-    
+
     updated = await attraction_repo.update(attraction_id, updates)
     
     if not updated:
@@ -241,6 +323,7 @@ async def update_attraction(
         admin_id=str(updated.admin_id) if updated.admin_id else None,
         admin_name=None,  # Would need to fetch separately
         admin_email=None,  # Would need to fetch separately
+        admin_username=None,  # Would need to fetch separately
         admin_status=None,  # Would need to fetch separately
         monthly_fee=updated.monthly_fee,
         yearly_fee=updated.yearly_fee,

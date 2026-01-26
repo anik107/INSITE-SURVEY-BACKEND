@@ -3,6 +3,7 @@ from fastapi import APIRouter, Query
 
 from app.api.deps import (
     AttractionAdminUser,
+    SuperAdminUser,
     DatabaseDep,
     UserRepoDep,
 )
@@ -181,6 +182,37 @@ async def get_transaction_summary(
     service = get_subscription_service(db, user_repo)
     summary = await service.get_transaction_summary(str(current_user.attraction_id))
     return TransactionSummary(**summary)
+
+
+@router.get("/admin/attractions/{attraction_id}/transactions", response_model=TransactionListResponse)
+async def get_attraction_transactions_admin(
+    attraction_id: str,
+    current_user: SuperAdminUser,
+    db: DatabaseDep,
+    user_repo: UserRepoDep,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+):
+    """
+    Get transaction history for a specific attraction (Super Admin only).
+
+    Returns all subscription transactions for the specified attraction.
+
+    Requires Super Admin role.
+    """
+    service = get_subscription_service(db, user_repo)
+    transactions, total = await service.get_transaction_history(
+        attraction_id=attraction_id,
+        skip=skip,
+        limit=limit,
+    )
+
+    return TransactionListResponse(
+        items=[TransactionResponse(**_format_transaction(t.model_dump())) for t in transactions],
+        total=total,
+        skip=skip,
+        limit=limit,
+    )
 
 
 def _format_transaction(txn: dict) -> dict:
