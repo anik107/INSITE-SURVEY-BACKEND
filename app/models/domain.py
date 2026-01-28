@@ -136,6 +136,7 @@ class QuestionResponse(BaseModel):
 class SectionResponse(BaseModel):
     section_id: PyObjectId
     note: str | None = None
+    images: list[str] | None = None  # Base64 encoded images
     questions: list[QuestionResponse]
 
 

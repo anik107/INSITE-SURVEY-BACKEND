@@ -59,7 +59,9 @@ class QuestionAnswerResponse(BaseModel):
 class SectionAnswerResponse(BaseModel):
     """Section answers in response detail."""
     section_id: str
-    note: str | None
+    title: str | None = None
+    note: str | None = None
+    images: list[str] | None = None  # Base64 encoded images
     questions: list[QuestionAnswerResponse]
 
 
@@ -83,13 +85,15 @@ class SurveyResponseDetail(BaseModel):
             response: The survey response domain model
             template: Optional template to enrich with question text
         """
-        # Build question lookup if template provided
+        # Build question and section lookup if template provided
         question_lookup = {}
+        section_lookup = {}
         if template:
             for section in template.sections:
+                section_lookup[str(section.id)] = section.title
                 for question in section.questions:
                     question_lookup[str(question.id)] = question.text
-        
+
         sections = []
         for s in response.sections:
             questions = [
@@ -103,10 +107,16 @@ class SurveyResponseDetail(BaseModel):
                 )
                 for q in s.questions
             ]
+            # Get section title from template
+            section_title = section_lookup.get(str(s.section_id), None)
+            # Get images from the raw response data (stored as dict)
+            section_images = getattr(s, 'images', None) or (s.get('images') if hasattr(s, 'get') else None)
             sections.append(
                 SectionAnswerResponse(
                     section_id=str(s.section_id),
+                    title=section_title,
                     note=s.note,
+                    images=section_images,
                     questions=questions,
                 )
             )
