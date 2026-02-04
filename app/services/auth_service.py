@@ -1,5 +1,6 @@
 """Authentication service for login, logout, and token management."""
-from datetime import datetime
+import secrets
+from datetime import datetime, timedelta
 
 from bson import ObjectId
 
@@ -18,7 +19,7 @@ from app.core.exceptions import (
     DuplicateError,
     ValidationError,
 )
-from app.models.domain import User, UserRole, UserStatus, Session, Attraction, SubscriptionStatus
+from app.models.domain import User, UserRole, UserStatus, Session, Attraction, SubscriptionStatus, PasswordResetToken
 from app.models.schemas.auth import (
     LoginRequest,
     TokenResponse,
@@ -29,7 +30,9 @@ from app.models.schemas.auth import (
 )
 from app.repositories.user_repository import UserRepository
 from app.repositories.session_repository import SessionRepository
+from app.repositories.password_reset_repository import PasswordResetTokenRepository
 from app.services.email_service import get_email_service
+from app.core.config import settings
 
 
 class AuthService:
@@ -39,10 +42,12 @@ class AuthService:
         self,
         user_repo: UserRepository,
         session_repo: SessionRepository,
+        password_reset_repo: PasswordResetTokenRepository | None = None,
         attraction_collection=None,
     ):
         self.user_repo = user_repo
         self.session_repo = session_repo
+        self.password_reset_repo = password_reset_repo
         self.attraction_collection = attraction_collection
 
     async def login(
@@ -273,6 +278,101 @@ class AuthService:
         # Update password
         new_hash = hash_password(new_password)
         await self.user_repo.update_password(str(user.id), new_hash)
+
+        # Revoke all sessions to force re-login
+        await self.session_repo.revoke_all_for_user(str(user.id))
+
+    async def request_password_reset(self, email: str) -> bool:
+        """
+        Request password reset by email. Generates token and sends email.
+
+        Args:
+            email: User's email address
+
+        Returns:
+            True if email sent successfully (or would be sent in dev mode)
+
+        Raises:
+            NotFoundError: If user not found
+        """
+        if not self.password_reset_repo:
+            raise ValidationError("Password reset not configured")
+
+        # Find user by email
+        user = await self.user_repo.find_by_email(email)
+        if not user:
+            # For security: don't reveal if email exists or not
+            # Just return True as if email was sent
+            return True
+
+        # Revoke any previous unused tokens for this user
+        await self.password_reset_repo.revoke_all_for_user(str(user.id))
+
+        # Generate secure random token
+        token = secrets.token_urlsafe(32)
+
+        # Store token in database (plain text, expires in 1 hour)
+        # We store it plain to allow lookup, but it's one-time use and expires quickly
+        token_data = {
+            "user_id": user.id,
+            "token": token,
+            "expires_at": datetime.utcnow() + timedelta(hours=1),
+            "used": False,
+        }
+        await self.password_reset_repo.create(token_data)
+
+        # Generate reset link
+        frontend_url = settings.frontend_url or settings.base_url
+        reset_link = f"{frontend_url}/reset-password?token={token}"
+
+        # Send email
+        email_service = get_email_service()
+        success = await email_service.send_password_reset_email(
+            to_email=user.email,
+            user_name=user.name,
+            reset_link=reset_link,
+        )
+
+        return success
+
+    async def reset_password_with_token(
+        self,
+        token: str,
+        new_password: str,
+    ) -> None:
+        """
+        Reset password using reset token from email.
+
+        Args:
+            token: Reset token from email link
+            new_password: New password
+
+        Raises:
+            InvalidTokenError: If token is invalid, expired, or already used
+        """
+        if not self.password_reset_repo:
+            raise ValidationError("Password reset not configured")
+
+        # Find valid token in database
+        reset_token = await self.password_reset_repo.find_valid_token(token)
+        if not reset_token:
+            raise InvalidTokenError("Invalid or expired reset token")
+
+        # Get user
+        user = await self.user_repo.find_by_id(str(reset_token.user_id))
+        if not user:
+            raise NotFoundError("User", str(reset_token.user_id))
+
+        # Check if account is suspended
+        if user.status == UserStatus.SUSPENDED:
+            raise AccountSuspendedError()
+
+        # Update password
+        new_hash = hash_password(new_password)
+        await self.user_repo.update_password(str(user.id), new_hash)
+
+        # Mark token as used
+        await self.password_reset_repo.mark_as_used(str(reset_token.id))
 
         # Revoke all sessions to force re-login
         await self.session_repo.revoke_all_for_user(str(user.id))

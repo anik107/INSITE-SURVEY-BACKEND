@@ -61,56 +61,45 @@ class AttractionCreate(BaseModel):
 async def list_attractions(
     current_user: SuperAdminUser,
     db: DatabaseDep,
-    user_repo: UserRepoDep,
     skip: int = Query(0, ge=0),
-    limit: int = Query(20, ge=1, le=100),
+    limit: int = Query(100, ge=1, le=1000),  # Increased max from 100 to 1000
 ):
     """
     List all attractions (Super Admin only).
+
+    Optimized with MongoDB aggregation pipeline to eliminate N+1 queries.
     """
     attraction_repo = AttractionRepository(db)
-    attractions = await attraction_repo.find_many(
-        filter=None,
+
+    # Use enriched query method with aggregation pipeline
+    # This replaces N+1 queries with just 2 queries
+    enriched_attractions, total = await attraction_repo.list_attractions_enriched(
         skip=skip,
-        limit=limit,
-        sort=[("created_at", -1)],
+        limit=limit
     )
-    total = await attraction_repo.count()
 
-    # Enrich with admin info
-    items = []
-    for attraction in attractions:
-        admin_name = None
-        admin_email = None
-        admin_username = None
-        admin_status = None
-
-        if attraction.admin_id:
-            admin = await user_repo.find_by_id(str(attraction.admin_id))
-            if admin:
-                admin_name = admin.name
-                admin_email = admin.email
-                admin_username = admin.username
-                admin_status = admin.status.value if admin.status else None
-
-        items.append(AttractionResponse(
-            id=str(attraction.id),
-            name=attraction.name,
-            admin_id=str(attraction.admin_id) if attraction.admin_id else None,
-            admin_name=admin_name,
-            admin_email=admin_email,
-            admin_username=admin_username,
-            admin_status=admin_status,
-            monthly_fee=attraction.monthly_fee,
-            yearly_fee=attraction.yearly_fee,
-            subscription_status=attraction.subscription_status.value,
-            subscription_plan=attraction.subscription_plan.value if attraction.subscription_plan else None,
-            subscription_start=attraction.subscription_start,
-            subscription_end=attraction.subscription_end,
-            auto_renew=attraction.auto_renew,
-            created_at=attraction.created_at,
-            updated_at=attraction.updated_at,
-        ))
+    # Convert to response models
+    items = [
+        AttractionResponse(
+            id=str(attr["_id"]),
+            name=attr["name"],
+            admin_id=str(attr["admin_id"]) if attr.get("admin_id") else None,
+            admin_name=attr.get("admin_name"),
+            admin_email=attr.get("admin_email"),
+            admin_username=attr.get("admin_username"),
+            admin_status=attr.get("admin_status"),
+            monthly_fee=attr.get("monthly_fee", 0.0),
+            yearly_fee=attr.get("yearly_fee", 199.0),
+            subscription_status=attr.get("subscription_status", "inactive"),
+            subscription_plan=attr.get("subscription_plan"),
+            subscription_start=attr.get("subscription_start"),
+            subscription_end=attr.get("subscription_end"),
+            auto_renew=attr.get("auto_renew", True),
+            created_at=attr.get("created_at"),
+            updated_at=attr.get("updated_at"),
+        )
+        for attr in enriched_attractions
+    ]
 
     return AttractionListResponse(items=items, total=total)
 

@@ -47,6 +47,17 @@ class ResetPasswordRequest(BaseModel):
     new_password: str = Field(min_length=8, max_length=128)
 
 
+class RequestPasswordResetRequest(BaseModel):
+    """Request password reset by email."""
+    email: EmailStr
+
+
+class ResetPasswordWithTokenRequest(BaseModel):
+    """Reset password using token from email."""
+    token: str = Field(min_length=1)
+    new_password: str = Field(min_length=8, max_length=128)
+
+
 class UserProfileResponse(BaseModel):
     """User profile response."""
     id: str

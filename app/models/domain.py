@@ -180,6 +180,14 @@ class User(DocumentModel):
     last_login_at: datetime | None = None
 
 
+class PasswordResetToken(DocumentModel):
+    """Password reset token for email-based password reset."""
+    user_id: PyObjectId
+    token: str  # Unique token (hashed)
+    expires_at: datetime
+    used: bool = False
+
+
 class SectionRequest(DocumentModel):
     attraction_id: PyObjectId
     admin_id: PyObjectId

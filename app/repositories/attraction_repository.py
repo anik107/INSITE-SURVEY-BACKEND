@@ -99,3 +99,64 @@ class AttractionRepository(BaseRepository[Attraction]):
         return await self.update(attraction_id, {
             "subscription_status": SubscriptionStatus.EXPIRED.value,
         })
+
+    async def list_attractions_enriched(
+        self,
+        skip: int = 0,
+        limit: int = 100,
+    ) -> tuple[list[dict], int]:
+        """
+        List attractions with admin data using aggregation pipeline.
+        Returns raw dicts with admin_name, admin_email, admin_username pre-joined.
+
+        This replaces the N+1 query pattern with a single aggregation query.
+        """
+        # Aggregation pipeline
+        pipeline = [
+            {"$sort": {"created_at": -1}},
+            {"$skip": skip},
+            {"$limit": limit},
+
+            # Join with users collection for admin data
+            {
+                "$lookup": {
+                    "from": "users",
+                    "localField": "admin_id",
+                    "foreignField": "_id",
+                    "as": "admin_data"
+                }
+            },
+
+            # Project final shape
+            {
+                "$project": {
+                    "_id": 1,
+                    "name": 1,
+                    "admin_id": 1,
+                    "monthly_fee": 1,
+                    "yearly_fee": 1,
+                    "subscription_status": 1,
+                    "subscription_plan": 1,
+                    "subscription_start": 1,
+                    "subscription_end": 1,
+                    "auto_renew": 1,
+                    "card_last4": 1,
+                    "card_brand": 1,
+                    "last_payment_date": 1,
+                    "created_at": 1,
+                    "updated_at": 1,
+                    "admin_name": {"$arrayElemAt": ["$admin_data.name", 0]},
+                    "admin_email": {"$arrayElemAt": ["$admin_data.email", 0]},
+                    "admin_username": {"$arrayElemAt": ["$admin_data.username", 0]},
+                    "admin_status": {"$arrayElemAt": ["$admin_data.status", 0]},
+                }
+            }
+        ]
+
+        # Execute aggregation
+        results = await self.aggregate(pipeline)
+
+        # Get total count
+        total = await self.count()
+
+        return results, total

@@ -20,6 +20,7 @@ from app.repositories.session_repository import SessionRepository
 from app.repositories.template_repository import TemplateRepository
 from app.repositories.survey_repository import SurveyRepository
 from app.repositories.response_repository import ResponseRepository
+from app.repositories.password_reset_repository import PasswordResetTokenRepository
 from app.services.auth_service import AuthService
 from app.services.template_service import TemplateService
 from app.services.survey_service import SurveyService
@@ -60,11 +61,17 @@ def get_response_repository(db: DatabaseDep) -> ResponseRepository:
     return ResponseRepository(db)
 
 
+def get_password_reset_repository(db: DatabaseDep) -> PasswordResetTokenRepository:
+    """Get password reset token repository instance."""
+    return PasswordResetTokenRepository(db)
+
+
 UserRepoDep = Annotated[UserRepository, Depends(get_user_repository)]
 SessionRepoDep = Annotated[SessionRepository, Depends(get_session_repository)]
 TemplateRepoDep = Annotated[TemplateRepository, Depends(get_template_repository)]
 SurveyRepoDep = Annotated[SurveyRepository, Depends(get_survey_repository)]
 ResponseRepoDep = Annotated[ResponseRepository, Depends(get_response_repository)]
+PasswordResetRepoDep = Annotated[PasswordResetTokenRepository, Depends(get_password_reset_repository)]
 
 
 # Service dependencies
@@ -72,11 +79,13 @@ def get_auth_service(
     db: DatabaseDep,
     user_repo: UserRepoDep,
     session_repo: SessionRepoDep,
+    password_reset_repo: PasswordResetRepoDep,
 ) -> AuthService:
     """Get auth service instance."""
     return AuthService(
         user_repo=user_repo,
         session_repo=session_repo,
+        password_reset_repo=password_reset_repo,
         attraction_collection=db["attractions"],
     )
 

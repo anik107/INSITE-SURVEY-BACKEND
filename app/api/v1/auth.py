@@ -20,6 +20,8 @@ from app.models.schemas.auth import (
     CreateUserRequest,
     CreateUserResponse,
     ResetPasswordRequest,
+    RequestPasswordResetRequest,
+    ResetPasswordWithTokenRequest,
 )
 from app.models.schemas.common import MessageResponse
 from app.services.email_service import get_email_service
@@ -109,11 +111,46 @@ async def reset_password(
     """
     Reset password using username (no email required).
 
+    **DEPRECATED**: Use /request-reset and /reset-password-with-token for secure email-based reset.
+
     - **username**: User's username
     - **new_password**: New password (min 8 characters)
     """
     await auth_service.reset_password_by_username(data.username, data.new_password)
     return MessageResponse(message="Password reset successfully")
+
+
+@router.post("/request-reset", response_model=MessageResponse)
+async def request_password_reset(
+    data: RequestPasswordResetRequest,
+    auth_service: AuthServiceDep,
+) -> MessageResponse:
+    """
+    Request password reset by email. Sends a reset link to the user's email.
+
+    - **email**: User's email address
+
+    Returns success even if email doesn't exist (security best practice).
+    """
+    await auth_service.request_password_reset(data.email)
+    return MessageResponse(
+        message="If an account exists with this email, a password reset link has been sent."
+    )
+
+
+@router.post("/reset-password-with-token", response_model=MessageResponse)
+async def reset_password_with_token(
+    data: ResetPasswordWithTokenRequest,
+    auth_service: AuthServiceDep,
+) -> MessageResponse:
+    """
+    Reset password using token from email link.
+
+    - **token**: Reset token from email
+    - **new_password**: New password (min 8 characters)
+    """
+    await auth_service.reset_password_with_token(data.token, data.new_password)
+    return MessageResponse(message="Password reset successfully. You can now log in with your new password.")
 
 
 @router.post("/users", response_model=CreateUserResponse)

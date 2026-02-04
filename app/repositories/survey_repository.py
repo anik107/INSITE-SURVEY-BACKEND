@@ -6,6 +6,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.models.domain import Survey, SurveyStatus
 from app.repositories.base import BaseRepository
+from app.core.cache import cached
 
 
 class SurveyRepository(BaseRepository[Survey]):
@@ -141,3 +142,96 @@ class SurveyRepository(BaseRepository[Survey]):
             limit=1,
         )
         return count > 0
+
+    @cached(ttl_seconds=180, key_prefix="surveys")  # 3 minute cache
+    async def list_surveys_enriched(
+        self,
+        attraction_id: str | None = None,
+        status: SurveyStatus | None = None,
+        skip: int = 0,
+        limit: int = 20,
+    ) -> tuple[list[dict], int]:
+        """
+        List surveys with enriched data using aggregation pipeline.
+        Returns raw dicts with attraction_name, template_name, and response_count pre-joined.
+
+        This replaces the N+1 query pattern with a single aggregation query.
+        Results are cached for 3 minutes to improve repeat load performance.
+        """
+        # Build match filter
+        match_filter = {}
+        if attraction_id:
+            match_filter["attraction_id"] = self._to_object_id(attraction_id)
+        if status:
+            match_filter["status"] = status.value
+
+        # Aggregation pipeline
+        pipeline = [
+            {"$match": match_filter} if match_filter else {"$match": {}},
+            {"$sort": {"updated_at": -1}},
+            {"$skip": skip},
+            {"$limit": limit},
+
+            # Join with attractions collection
+            {
+                "$lookup": {
+                    "from": "attractions",
+                    "localField": "attraction_id",
+                    "foreignField": "_id",
+                    "as": "attraction_data"
+                }
+            },
+
+            # Join with templates collection
+            {
+                "$lookup": {
+                    "from": "templates",
+                    "localField": "template_id",
+                    "foreignField": "_id",
+                    "as": "template_data"
+                }
+            },
+
+            # Join with survey_responses to count
+            {
+                "$lookup": {
+                    "from": "survey_responses",
+                    "localField": "_id",
+                    "foreignField": "survey_id",
+                    "as": "responses"
+                }
+            },
+
+            # Project final shape
+            {
+                "$project": {
+                    "_id": 1,
+                    "template_id": 1,
+                    "attraction_id": 1,
+                    "name": 1,
+                    "status": 1,
+                    "sections": 1,
+                    "share_id": 1,
+                    "qr_code_url": 1,
+                    "published_at": 1,
+                    "archived_at": 1,
+                    "created_at": 1,
+                    "updated_at": 1,
+                    "response_count": {"$size": "$responses"},
+                    "attraction_name": {
+                        "$arrayElemAt": ["$attraction_data.name", 0]
+                    },
+                    "template_name": {
+                        "$arrayElemAt": ["$template_data.title", 0]
+                    }
+                }
+            }
+        ]
+
+        # Execute aggregation
+        results = await self.aggregate(pipeline)
+
+        # Get total count (separate query, but necessary for pagination)
+        total = await self.count(match_filter)
+
+        return results, total

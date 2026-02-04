@@ -17,6 +17,7 @@ from app.models.domain import Survey, SurveyStatus, SurveySection
 from app.repositories.survey_repository import SurveyRepository
 from app.repositories.template_repository import TemplateRepository
 from app.utils.qr_generator import generate_survey_qr
+from app.core.cache import invalidate_cache
 
 
 class SurveyService:
@@ -138,7 +139,12 @@ class SurveyService:
             "share_id": share_id,
         }
 
-        return await self.survey_repo.create(survey_data)
+        survey = await self.survey_repo.create(survey_data)
+
+        # Invalidate cache after creating survey
+        await invalidate_cache("surveys")
+
+        return survey
 
     async def update_survey(
         self,
@@ -165,6 +171,10 @@ class SurveyService:
         updated = await self.survey_repo.update(survey_id, filtered)
         if not updated:
             raise NotFoundError("Survey", survey_id)
+
+        # Invalidate cache after updating survey
+        await invalidate_cache("surveys")
+
         return updated
 
     async def delete_survey(
@@ -189,6 +199,9 @@ class SurveyService:
             )
 
         await self.survey_repo.delete(survey_id)
+
+        # Invalidate cache after deleting survey
+        await invalidate_cache("surveys")
 
     async def publish_survey(
         self,
@@ -218,6 +231,9 @@ class SurveyService:
         if not published:
             raise NotFoundError("Survey", survey_id)
 
+        # Invalidate cache after publishing survey
+        await invalidate_cache("surveys")
+
         return published
 
     async def archive_survey(
@@ -234,6 +250,10 @@ class SurveyService:
         archived = await self.survey_repo.archive(survey_id)
         if not archived:
             raise NotFoundError("Survey", survey_id)
+
+        # Invalidate cache after archiving survey
+        await invalidate_cache("surveys")
+
         return archived
 
     def get_public_url(self, share_id: str) -> str:

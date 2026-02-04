@@ -9,7 +9,7 @@ from app.api.deps import (
     DatabaseDep,
     TemplateRepoDep,
 )
-from app.models.domain import SurveyStatus
+from app.models.domain import SurveyStatus, Survey
 from app.models.schemas.survey import (
     SurveyUpdate,
     SurveyResponse,
@@ -25,9 +25,6 @@ router = APIRouter(prefix="/admin/surveys", tags=["Admin Surveys"])
 async def list_all_surveys(
     current_user: SuperAdminUser,
     survey_service: SurveyServiceDep,
-    response_service: ResponseServiceDep,
-    template_repo: TemplateRepoDep,
-    db: DatabaseDep,
     status: SurveyStatus | None = None,
     attraction_id: str | None = Query(None, description="Filter by attraction ID"),
     page: int = Query(default=1, ge=1),
@@ -38,41 +35,33 @@ async def list_all_surveys(
 
     - **status**: Filter by survey status (draft, published, archived)
     - **attraction_id**: Optional filter to only show surveys for a specific attraction
+
+    Optimized with MongoDB aggregation pipeline to eliminate N+1 queries.
     """
     skip = (page - 1) * page_size
-    surveys, total = await survey_service.list_surveys(
+
+    # Use enriched query method with aggregation pipeline
+    # This replaces 301 queries (1 + 100*3) with just 2 queries
+    enriched_surveys, total = await survey_service.survey_repo.list_surveys_enriched(
         attraction_id=attraction_id,
         status=status,
         skip=skip,
         limit=page_size,
     )
 
-    # Fetch response counts and enrich with attraction/template names
+    # Convert to response models
     items = []
-    for survey in surveys:
-        response_count = await response_service.response_repo.count_by_survey(str(survey.id))
-        
-        # Get attraction name
-        attraction_name = None
-        if survey.attraction_id:
-            attraction = await db["attractions"].find_one({"_id": survey.attraction_id})
-            if attraction:
-                attraction_name = attraction.get("name")
-        
-        # Get template name
-        template_name = None
-        if survey.template_id:
-            template = await template_repo.find_by_id(str(survey.template_id))
-            if template:
-                template_name = template.title  # Template uses 'title' not 'name'
-        
+    for survey_data in enriched_surveys:
+        # Convert to Survey model first
+        survey = Survey(**survey_data)
+
         items.append(SurveyListItem.from_model(
-            survey, 
-            response_count=response_count,
-            attraction_name=attraction_name,
-            template_name=template_name
+            survey,
+            response_count=survey_data.get("response_count", 0),
+            attraction_name=survey_data.get("attraction_name"),
+            template_name=survey_data.get("template_name"),
         ))
-    
+
     return PaginatedResponse.create(items, total, page, page_size)
 
 
