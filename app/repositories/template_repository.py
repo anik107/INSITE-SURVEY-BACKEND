@@ -53,6 +53,20 @@ class TemplateRepository(BaseRepository[Template]):
         )
         return result.modified_count > 0
 
+    async def unpublish_published(self) -> bool:
+        """Unpublish currently published template (set back to draft)."""
+        result = await self.collection.update_one(
+            {"status": TemplateStatus.PUBLISHED.value},
+            {
+                "$set": {
+                    "status": TemplateStatus.DRAFT.value,
+                    "updated_at": datetime.utcnow(),
+                },
+                "$unset": {"published_at": ""},
+            },
+        )
+        return result.modified_count > 0
+
     async def publish(self, template_id: str | ObjectId) -> Template | None:
         """Publish a template."""
         now = datetime.utcnow()

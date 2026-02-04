@@ -149,9 +149,9 @@ class TemplateService:
                 })
             filtered["sections"] = sections_data
 
-        # If publishing, archive current published template
+        # If publishing, unpublish current published template (set to draft)
         if "status" in filtered and filtered["status"] == TemplateStatus.PUBLISHED.value:
-            await self.template_repo.archive_published()
+            await self.template_repo.unpublish_published()
 
         if not filtered:
             return template
@@ -182,7 +182,8 @@ class TemplateService:
         Publish template.
 
         Business rules:
-        - BR-TPL-001: Archive currently published template first
+        - BR-TPL-001: Unpublish (set to draft) currently published template first
+        - Only one template can be published at a time
         - Template must have at least one section
         - Each section must have at least one question
         """
@@ -205,8 +206,8 @@ class TemplateService:
                     f"Section '{section.title}' must have at least one question"
                 )
 
-        # Archive currently published template (BR-TPL-001)
-        await self.template_repo.archive_published()
+        # Unpublish currently published template (set to draft) (BR-TPL-001)
+        await self.template_repo.unpublish_published()
 
         # Publish this template
         published = await self.template_repo.publish(template_id)
